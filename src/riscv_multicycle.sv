@@ -131,10 +131,10 @@ module riscv_multicycle import riscv_pkg::*; #(
     
     assign alu_a = ex_pc_to_alu ? ex_pc : ex_rs1_data;
     assign alu_b = ex_alu_src ? ex_imm : ex_rs2_data;
-
+    logic unused_zero;
     alu u_alu (
         .a_i(alu_a), .b_i(alu_b), .alu_ctrl_i(ex_alu_ctrl),
-        .res_o(alu_res), .zero_o()
+        .res_o(alu_res), .zero_o(unused_zero)
     );
 
     // Simplified Branch Target Logic

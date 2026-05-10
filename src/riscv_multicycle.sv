@@ -83,7 +83,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic        reg_we, alu_src, pc_to_alu, mem_we, branch, jump, jalr_w;
     logic [1:0]  wb_sel;
     logic [3:0]  alu_ctrl;
-
+    logic [2:0] unused_branch_type;
     decoder u_decoder (
         .clk_i(clk_i), .instr_i(dec_instr),
         .rs1_addr_o(rs1_addr), .rs2_addr_o(rs2_addr), .rd_addr_o(rd_addr),

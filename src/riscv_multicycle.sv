@@ -246,12 +246,19 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign writeback_id_o = wb_id;
     assign writeback_valid_o = wb_valid;
 
-    // --- 12. RETIRE PORT ASSIGNMENTS ---
+// --- 12. RETIRE PORT ASSIGNMENTS ---
     assign update_o   = wb_valid;
     assign pc_o       = wb_pc;
     assign instr_o    = wb_instr; 
     assign reg_addr_o = wb_rd_addr;
     assign reg_data_o = wb_data;
+    
+    // Testbench artık Store edilen veriyi ve adresi görebilecek
+    assign mem_addr_o = wb_alu_res;
+    assign mem_data_o = wb_mem_we ? wb_store_data : wb_mem_data; 
+    
+    // İŞTE BURASI: Sadece komut gerçekten geçerliyse yazma iznini testbench'e bildir!
+    assign mem_wrt_o  = wb_mem_we && wb_valid;
     
     // Testbench artık Store edilen veriyi ve adresi görebilecek
     assign mem_addr_o = wb_alu_res;

@@ -204,14 +204,20 @@ module riscv_multicycle import riscv_pkg::*; #(
             data_mem[mem_alu_res[12:2]] <= mem_rs2_data;
     end
 
-    // --- 10. MEM/WB PIPELINE REGISTER ---
+// --- 10. MEM/WB PIPELINE REGISTER ---
     logic [XLEN-1:0] wb_pc, wb_alu_res, wb_mem_data, wb_id, wb_instr;
     logic [1:0]  wb_sel_final;
+    logic        wb_reg_we;
+    
+    // YENİ EKLENENLER: Store komutunu testbench'e duyurmak için
+    logic        wb_mem_we;
+    logic [31:0] wb_store_data;
 
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             wb_valid <= 1'b0;
             wb_reg_we <= 1'b0;
+            wb_mem_we <= 1'b0;
             wb_instr <= 32'b0;
         end else begin
             wb_pc <= mem_pc; wb_alu_res <= mem_alu_res;
@@ -219,6 +225,10 @@ module riscv_multicycle import riscv_pkg::*; #(
             wb_rd_addr <= mem_rd_addr_reg; wb_sel_final <= mem_wb_sel_reg;
             wb_reg_we <= mem_reg_we_reg; wb_instr <= mem_instr_reg;
             wb_id <= mem_id_reg; wb_valid <= mem_valid_reg;
+            
+            // Veriyi son aşamaya taşıyoruz
+            wb_mem_we <= mem_mem_we_reg;
+            wb_store_data <= mem_rs2_data;
         end
     end
 
@@ -239,12 +249,14 @@ module riscv_multicycle import riscv_pkg::*; #(
     // --- 12. RETIRE PORT ASSIGNMENTS ---
     assign update_o   = wb_valid;
     assign pc_o       = wb_pc;
-    assign instr_o    = wb_instr; // Testbench için komut ulaştırıldı
+    assign instr_o    = wb_instr; 
     assign reg_addr_o = wb_rd_addr;
     assign reg_data_o = wb_data;
+    
+    // DÜZELTİLEN YER: Testbench artık Store edilen veriyi ve adresi görebilecek
     assign mem_addr_o = wb_alu_res;
-    assign mem_data_o = wb_mem_data;
-    assign mem_wrt_o  = 1'b0; 
+    assign mem_data_o = wb_mem_we ? wb_store_data : wb_mem_data; 
+    assign mem_wrt_o  = wb_mem_we;
 
     // --- 13. GERÇEK HAZARD UNIT LOGIC ---
     assign flush = ex_valid && (ex_jump || (ex_branch && branch_taken));

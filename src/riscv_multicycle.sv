@@ -80,7 +80,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     // --- 5. DECODE (DEC) STAGE ---
     logic [4:0]  rs1_addr, rs2_addr, rd_addr;
     logic [31:0] imm, rs1_data, rs2_data;
-    logic        reg_we, alu_src, pc_to_alu, mem_we, branch, jump, jalr;
+    logic        reg_we, alu_src, pc_to_alu, mem_we, branch, jump, jalr_w;
     logic [1:0]  wb_sel;
     logic [3:0]  alu_ctrl;
 
@@ -89,7 +89,7 @@ module riscv_multicycle import riscv_pkg::*; #(
         .rs1_addr_o(rs1_addr), .rs2_addr_o(rs2_addr), .rd_addr_o(rd_addr),
         .imm_o(imm), .reg_we_o(reg_we), .alu_src_o(alu_src), .pc_to_alu_o(pc_to_alu),
         .alu_ctrl_o(alu_ctrl), .mem_we_o(mem_we), .wb_sel_o(wb_sel),
-        .branch_o(branch), .jump_o(jump), .jalr_o(jalr)
+        .branch_o(branch), .jump_o(jump), .jalr_o(jalr_w)
     );
 
     register_file u_regfile (
@@ -120,7 +120,7 @@ module riscv_multicycle import riscv_pkg::*; #(
             ex_rd_addr <= rd_addr; ex_rs1_addr <= rs1_addr; ex_rs2_addr <= rs2_addr;
             ex_alu_ctrl <= alu_ctrl; ex_wb_sel <= wb_sel; ex_reg_we <= reg_we;
             ex_alu_src <= alu_src; ex_pc_to_alu <= pc_to_alu; ex_mem_we <= mem_we;
-            ex_branch <= branch; ex_jump <= jump; ex_jalr <= jalr;
+            ex_branch <= branch; ex_jump <= jump; ex_jalr <= jalr_w;
             ex_id <= dec_id; ex_valid <= dec_valid;
         end
     end

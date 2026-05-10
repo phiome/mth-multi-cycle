@@ -28,7 +28,7 @@ module register_file import riscv_pkg::*; (
  
     // Write and Reset Logic (Sync)
 
-    always_ff @(posedge clk_i or negedge rstn_i) begin
+    always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             for (int i = 1; i < 32; i++) begin
                 registers[i] <= '0;

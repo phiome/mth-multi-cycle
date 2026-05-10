@@ -34,8 +34,8 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [XLEN-1:0] next_instr_id; // Counter for instruction IDs 
 
     initial begin
-        $readmemh(IMemInitFile, instr_mem, 0, 2047); [cite: 188]
-        $readmemh(DMemInitFile, data_mem, 0, 2047); [cite: 189]
+        $readmemh(IMemInitFile, instr_mem, 0, 2047);
+        $readmemh(DMemInitFile, data_mem, 0, 2047);
     end
 
     // --- 2. HAZARD UNIT SIGNALS ---
@@ -203,7 +203,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign writeback_id_o = wb_id;
     assign writeback_valid_o = wb_valid;
 
-    // --- 12. RETIRE PORT ASSIGNMENTS (Final outputs) --- [cite: 183]
+    // --- 12. RETIRE PORT ASSIGNMENTS (Final outputs) --- 
     assign update_o   = wb_valid;
     assign pc_o       = wb_pc;
     assign instr_o    = 32'h0; // Simplified for this template

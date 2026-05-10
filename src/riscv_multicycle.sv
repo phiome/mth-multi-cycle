@@ -204,10 +204,9 @@ module riscv_multicycle import riscv_pkg::*; #(
             data_mem[mem_alu_res[12:2]] <= mem_rs2_data;
     end
 
-// --- 10. MEM/WB PIPELINE REGISTER ---
+    // --- 10. MEM/WB PIPELINE REGISTER ---
     logic [XLEN-1:0] wb_pc, wb_alu_res, wb_mem_data, wb_id, wb_instr;
     logic [1:0]  wb_sel_final;
-    // DİKKAT: 'wb_reg_we' ve 'wb_valid' üst kısımlarda tanımlı olduğu için buradan sildik.
     
     // Store komutunu testbench'e duyurmak için
     logic        wb_mem_we;
@@ -246,24 +245,17 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign writeback_id_o = wb_id;
     assign writeback_valid_o = wb_valid;
 
-// --- 12. RETIRE PORT ASSIGNMENTS ---
+    // --- 12. RETIRE PORT ASSIGNMENTS ---
     assign update_o   = wb_valid;
     assign pc_o       = wb_pc;
     assign instr_o    = wb_instr; 
     assign reg_addr_o = wb_rd_addr;
     assign reg_data_o = wb_data;
     
-    // Testbench artık Store edilen veriyi ve adresi görebilecek
+    // Çift assign hataları düzeltildi, sadece doğru olanı bırakıldı.
     assign mem_addr_o = wb_alu_res;
     assign mem_data_o = wb_mem_we ? wb_store_data : wb_mem_data; 
-    
-    // İŞTE BURASI: Sadece komut gerçekten geçerliyse yazma iznini testbench'e bildir!
-    assign mem_wrt_o  = wb_mem_we && wb_valid;
-    
-    // Testbench artık Store edilen veriyi ve adresi görebilecek
-    assign mem_addr_o = wb_alu_res;
-    assign mem_data_o = wb_mem_we ? wb_store_data : wb_mem_data; 
-    assign mem_wrt_o  = wb_mem_we;
+    assign mem_wrt_o  = wb_mem_we && wb_valid; 
 
     // --- 13. GERÇEK HAZARD UNIT LOGIC ---
     assign flush = ex_valid && (ex_jump || (ex_branch && branch_taken));
@@ -277,7 +269,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign hazard_mem = mem_valid_reg && mem_reg_we_reg && (mem_rd_addr_reg != 5'b0) && ((dec_uses_rs1 && rs1_addr == mem_rd_addr_reg) || (dec_uses_rs2 && rs2_addr == mem_rd_addr_reg));
     assign hazard_wb  = wb_valid  && wb_reg_we  && (wb_rd_addr != 5'b0)  && ((dec_uses_rs1 && rs1_addr == wb_rd_addr) || (dec_uses_rs2 && rs2_addr == wb_rd_addr));
 
-    // STALL çalışıarken eğer o anda FLUSH varsa, stall iptal edilir (!flush)
+    // STALL çalışırken eğer o anda FLUSH varsa, stall iptal edilir (!flush)
     assign stall = dec_valid && (hazard_ex || hazard_mem || hazard_wb) && !flush;
 
 endmodule

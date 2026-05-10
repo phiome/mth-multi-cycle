@@ -32,7 +32,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [XLEN-1:0] instr_mem [0:2047];
     logic [XLEN-1:0] data_mem  [0:2047];
     logic [XLEN-1:0] next_instr_id; // Counter for instruction IDs 
-
+    assign data_o = data_mem[addr_i[12:2]];
     initial begin
         $readmemh(IMemInitFile, instr_mem, 0, 2047);
         $readmemh(DMemInitFile, data_mem, 0, 2047);
@@ -64,7 +64,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [XLEN-1:0] dec_pc, dec_instr, dec_id;
     logic dec_valid;
 
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge clk_i or negedge rstn_i) begin
         if (!rstn_i || flush) begin
             dec_instr <= 32'b0;
             dec_valid <= 1'b0;
@@ -84,7 +84,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [1:0]  wb_sel;
     logic [3:0]  alu_ctrl;
     logic [2:0] unused_branch_type;
-    decoder u_decoder (
+    decoder u_decoder (.branch_type_o(),
         .clk_i(clk_i), .instr_i(dec_instr),
         .rs1_addr_o(rs1_addr), .rs2_addr_o(rs2_addr), .rd_addr_o(rd_addr),
         .imm_o(imm), .reg_we_o(reg_we), .alu_src_o(alu_src), .pc_to_alu_o(pc_to_alu),
@@ -110,7 +110,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [1:0]  ex_wb_sel;
     logic        ex_reg_we, ex_alu_src, ex_pc_to_alu, ex_mem_we, ex_branch, ex_jump, ex_jalr, ex_valid;
 
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge clk_i or negedge rstn_i) begin
         if (!rstn_i || flush || stall) begin
             ex_valid <= 1'b0;
             ex_reg_we <= 1'b0;
@@ -150,7 +150,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [1:0]  mem_wb_sel_reg;
     logic        mem_reg_we_reg, mem_mem_we_reg, mem_valid_reg;
 
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge clk_i or negedge rstn_i) begin
         if (!rstn_i) begin
             mem_valid_reg <= 1'b0;
             mem_reg_we_reg <= 1'b0;
@@ -166,7 +166,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign mem_id_o = mem_id_reg;
     assign mem_valid_o = mem_valid_reg;
     
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge clk_i or negedge rstn_i) begin
         if (mem_mem_we_reg && mem_valid_reg)
             data_mem[mem_alu_res[12:2]] <= mem_rs2_data;
     end
@@ -177,7 +177,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [1:0]  wb_sel_final;
     logic        wb_reg_we, wb_valid;
 
-    always_ff @(posedge clk_i) begin
+    always_ff @(posedge clk_i or negedge rstn_i) begin
         if (!rstn_i) begin
             wb_valid <= 1'b0;
         end else begin

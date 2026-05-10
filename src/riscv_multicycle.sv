@@ -207,9 +207,9 @@ module riscv_multicycle import riscv_pkg::*; #(
 // --- 10. MEM/WB PIPELINE REGISTER ---
     logic [XLEN-1:0] wb_pc, wb_alu_res, wb_mem_data, wb_id, wb_instr;
     logic [1:0]  wb_sel_final;
-    logic        wb_reg_we;
+    // DİKKAT: 'wb_reg_we' ve 'wb_valid' üst kısımlarda tanımlı olduğu için buradan sildik.
     
-    // YENİ EKLENENLER: Store komutunu testbench'e duyurmak için
+    // Store komutunu testbench'e duyurmak için
     logic        wb_mem_we;
     logic [31:0] wb_store_data;
 
@@ -253,7 +253,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign reg_addr_o = wb_rd_addr;
     assign reg_data_o = wb_data;
     
-    // DÜZELTİLEN YER: Testbench artık Store edilen veriyi ve adresi görebilecek
+    // Testbench artık Store edilen veriyi ve adresi görebilecek
     assign mem_addr_o = wb_alu_res;
     assign mem_data_o = wb_mem_we ? wb_store_data : wb_mem_data; 
     assign mem_wrt_o  = wb_mem_we;

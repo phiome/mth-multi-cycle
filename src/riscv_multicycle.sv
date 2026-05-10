@@ -269,7 +269,7 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign hazard_mem = mem_valid_reg && mem_reg_we_reg && (mem_rd_addr_reg != 5'b0) && ((dec_uses_rs1 && rs1_addr == mem_rd_addr_reg) || (dec_uses_rs2 && rs2_addr == mem_rd_addr_reg));
     assign hazard_wb  = wb_valid  && wb_reg_we  && (wb_rd_addr != 5'b0)  && ((dec_uses_rs1 && rs1_addr == wb_rd_addr) || (dec_uses_rs2 && rs2_addr == wb_rd_addr));
 
-    // STALL çalışırken eğer o anda FLUSH varsa, stall iptal edilir (!flush)
+    // STALL çalışırken eğer o a nda FLUSH varsa, stall iptal edilir (!flush)
     assign stall = dec_valid && (hazard_ex || hazard_mem || hazard_wb) && !flush;
 
 endmodule

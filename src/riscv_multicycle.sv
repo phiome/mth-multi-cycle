@@ -39,7 +39,6 @@ module riscv_multicycle import riscv_pkg::*; #(
         $readmemh(DMemInitFile, data_mem, 0, 2047);
     end
 
-    // Testbench'in arka kapıdan (backdoor) bellek okuması için gerekli atama
     assign data_o = data_mem[addr_i[12:2]];
 
     // --- 2. HAZARD UNIT SIGNALS ---
@@ -47,15 +46,14 @@ module riscv_multicycle import riscv_pkg::*; #(
 
     // --- 3. FETCH (FE) STAGE ---
     logic [XLEN-1:0] fe_pc, fe_instr;
-    logic [31:0] branch_target_ex; // Execute aşamasından gelecek dallanma hedefi
+    logic [31:0] branch_target_ex; 
     
-    // NOT: Hocanın konata.sv dosyasıyla uyumlu olmak için tüm resetler SENKRON yapıldı
     always_ff @(posedge clk_i) begin
         if (!rstn_i) begin
             fe_pc <= 32'h80000000;
             next_instr_id <= 32'd1;
         end else if (!stall) begin
-            if (flush) fe_pc <= branch_target_ex; // Branch recovery
+            if (flush) fe_pc <= branch_target_ex; // Dallanma/Atlama olduysa yeni adrese git
             else fe_pc <= fe_pc + 4;
             
             if (fetch_valid_o) next_instr_id <= next_instr_id + 1;
@@ -86,21 +84,20 @@ module riscv_multicycle import riscv_pkg::*; #(
     // --- 5. DECODE (DEC) STAGE ---
     logic [4:0]  rs1_addr, rs2_addr, rd_addr;
     logic [31:0] imm, rs1_data, rs2_data;
-    logic        reg_we, alu_src, pc_to_alu, mem_we, branch, jump, jalr_w; // 'jalr_w' olarak değiştirildi
+    logic        reg_we, alu_src, pc_to_alu, mem_we, branch, jump, jalr_w; 
     logic [1:0]  wb_sel;
     logic [3:0]  alu_ctrl;
-    logic [2:0]  unused_branch_type; // Eksik pin hatasını çözmek için sahte kablo
+    logic [2:0]  branch_type; // Branch tipini EXE aşamasına taşımak için
 
     decoder u_decoder (
         .clk_i(clk_i), .instr_i(dec_instr),
         .rs1_addr_o(rs1_addr), .rs2_addr_o(rs2_addr), .rd_addr_o(rd_addr),
         .imm_o(imm), .reg_we_o(reg_we), .alu_src_o(alu_src), .pc_to_alu_o(pc_to_alu),
         .alu_ctrl_o(alu_ctrl), .mem_we_o(mem_we), .wb_sel_o(wb_sel),
-        .branch_o(branch), .jump_o(jump), .jalr_o(jalr_w), // 'jalr_w' bağlandı
-        .branch_type_o(unused_branch_type) // Boş kalmaması için bağlandı
+        .branch_o(branch), .jump_o(jump), .jalr_o(jalr_w), 
+        .branch_type_o(branch_type) // Bağlantı yapıldı
     );
 
-    // Writeback aşamasından gelen geri bildirimler (Feedback)
     logic wb_reg_we, wb_valid;
     logic [4:0] wb_rd_addr;
     logic [31:0] wb_data;
@@ -121,37 +118,59 @@ module riscv_multicycle import riscv_pkg::*; #(
     logic [4:0]  ex_rd_addr, ex_rs1_addr, ex_rs2_addr;
     logic [3:0]  ex_alu_ctrl;
     logic [1:0]  ex_wb_sel;
+    logic [2:0]  ex_branch_type;
     logic        ex_reg_we, ex_alu_src, ex_pc_to_alu, ex_mem_we, ex_branch, ex_jump, ex_jalr, ex_valid;
 
     always_ff @(posedge clk_i) begin
-        if (!rstn_i || flush || stall) begin
+        if (!rstn_i || flush || stall) begin // STALL veya FLUSH durumunda EXE aşamasına "Bubble" (boşluk) gönderilir
             ex_valid <= 1'b0;
             ex_reg_we <= 1'b0;
             ex_mem_we <= 1'b0;
+            ex_branch <= 1'b0;
+            ex_jump <= 1'b0;
+            ex_jalr <= 1'b0;
         end else begin
             ex_pc <= dec_pc; ex_imm <= imm; ex_rs1_data <= rs1_data; ex_rs2_data <= rs2_data;
             ex_rd_addr <= rd_addr; ex_rs1_addr <= rs1_addr; ex_rs2_addr <= rs2_addr;
             ex_alu_ctrl <= alu_ctrl; ex_wb_sel <= wb_sel; ex_reg_we <= reg_we;
             ex_alu_src <= alu_src; ex_pc_to_alu <= pc_to_alu; ex_mem_we <= mem_we;
-            ex_branch <= branch; ex_jump <= jump; ex_jalr <= jalr_w; // 'jalr_w' ataması
+            ex_branch <= branch; ex_jump <= jump; ex_jalr <= jalr_w; 
+            ex_branch_type <= branch_type;
             ex_id <= dec_id; ex_valid <= dec_valid;
         end
     end
 
     // --- 7. EXECUTE (EXE) STAGE ---
     logic [31:0] alu_a, alu_b, alu_res;
-    logic unused_zero; // ALU'nun zero_o pini için sahte kablo
+    logic unused_zero; 
     
     assign alu_a = ex_pc_to_alu ? ex_pc : ex_rs1_data;
     assign alu_b = ex_alu_src ? ex_imm : ex_rs2_data;
 
     alu u_alu (
         .a_i(alu_a), .b_i(alu_b), .alu_ctrl_i(ex_alu_ctrl),
-        .res_o(alu_res), .zero_o(unused_zero) // Pin bağlandı
+        .res_o(alu_res), .zero_o(unused_zero) 
     );
 
-    // Basitleştirilmiş Branch/Jump Hedef Hesabı
-    assign branch_target_ex = ex_jalr ? (ex_rs1_data + ex_imm) : (ex_pc + ex_imm);
+    // Kapsamlı Branch (Dallanma) Mantığı (Senin HW2 ISA'na göre)
+    logic branch_taken;
+    always_comb begin
+        branch_taken = 1'b0;
+        if (ex_branch) begin
+            case (ex_branch_type)
+                3'b100: branch_taken = (ex_rs1_data == ex_rs2_data);                         // BEQ
+                3'b101: branch_taken = (ex_rs1_data != ex_rs2_data);                         // BNE
+                3'b000: branch_taken = (ex_rs1_data >= ex_rs2_data);                         // BGEU
+                3'b001: branch_taken = (ex_rs1_data <  ex_rs2_data);                         // BLTU
+                3'b010: branch_taken = ($signed(ex_rs1_data) >= $signed(ex_rs2_data));       // BGE
+                3'b011: branch_taken = ($signed(ex_rs1_data) <  $signed(ex_rs2_data));       // BLT
+                default: branch_taken = 1'b0;
+            endcase
+        end
+    end
+
+    // Jump ve Branch Hedef Adresi
+    assign branch_target_ex = ex_jalr ? ((ex_rs1_data + ex_imm) & ~32'b1) : (ex_pc + ex_imm);
 
     assign execute_id_o = ex_id;
     assign execute_valid_o = ex_valid;
@@ -214,18 +233,32 @@ module riscv_multicycle import riscv_pkg::*; #(
     assign writeback_id_o = wb_id;
     assign writeback_valid_o = wb_valid;
 
-    // --- 12. RETIRE PORT ASSIGNMENTS (Hocanın Beklediği Final Çıkışlar) ---
+    // --- 12. RETIRE PORT ASSIGNMENTS ---
     assign update_o   = wb_valid;
     assign pc_o       = wb_pc;
-    assign instr_o    = 32'h0; // Basit şablon için 0 bırakıldı, gerekirse boru hattında taşınabilir
+    assign instr_o    = 32'h0; 
     assign reg_addr_o = wb_rd_addr;
     assign reg_data_o = wb_data;
     assign mem_addr_o = wb_alu_res;
     assign mem_data_o = wb_mem_data;
-    assign mem_wrt_o  = 1'b0; // Bellek yazma işlemi MEM aşamasında halledildi
+    assign mem_wrt_o  = 1'b0; 
 
-    // --- 13. HAZARD UNIT LOGIC (Basit Load-Use Stall) ---
-    assign stall = (ex_valid && ex_mem_we && (ex_rd_addr == rs1_addr || ex_rd_addr == rs2_addr));
-    assign flush = 1'b0; // İlerleyen aşamalarda Branch mantığı buraya eklenecek
+    // --- 13. GERÇEK HAZARD UNIT LOGIC (DURDUR VE TEMİZLE) ---
+    
+    // 1. CONTROL HAZARD (FLUSH): Eğer Dallanma (Branch) şartı sağlandıysa veya Jump (JAL/JALR) varsa boru hattını temizle
+    assign flush = ex_valid && (ex_jump || (ex_branch && branch_taken));
+
+    // 2. DATA HAZARD (STALL): Eğer Decode aşamasındaki komutun ihtiyaç duyduğu Register, 
+    // şu an ileriki aşamalarda (EXE, MEM, WB) hesaplanıyorsa, boru hattını durdur!
+    logic dec_uses_rs1, dec_uses_rs2;
+    assign dec_uses_rs1 = (rs1_addr != 5'b0);
+    assign dec_uses_rs2 = (rs2_addr != 5'b0);
+
+    logic hazard_ex, hazard_mem, hazard_wb;
+    assign hazard_ex  = ex_valid  && ex_reg_we  && (ex_rd_addr != 5'b0)  && ((dec_uses_rs1 && rs1_addr == ex_rd_addr) || (dec_uses_rs2 && rs2_addr == ex_rd_addr));
+    assign hazard_mem = mem_valid_reg && mem_reg_we_reg && (mem_rd_addr_reg != 5'b0) && ((dec_uses_rs1 && rs1_addr == mem_rd_addr_reg) || (dec_uses_rs2 && rs2_addr == mem_rd_addr_reg));
+    assign hazard_wb  = wb_valid  && wb_reg_we  && (wb_rd_addr != 5'b0)  && ((dec_uses_rs1 && rs1_addr == wb_rd_addr) || (dec_uses_rs2 && rs2_addr == wb_rd_addr));
+
+    assign stall = dec_valid && (hazard_ex || hazard_mem || hazard_wb);
 
 endmodule
